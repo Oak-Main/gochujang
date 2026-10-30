@@ -10,8 +10,11 @@ try {
   const context=await browser.newContext({viewport:{width,height:936},hasTouch:width<768,isMobile:width<768,deviceScaleFactor:1});
   const page=await context.newPage();
   for (const route of ['/','/recipes/','/recipes/dolsot-bibimbap/']) {
-   await page.goto(base+route,{waitUntil:'networkidle'});
-   assert.equal(await page.locator('main').count(),1);
+   const response=await page.goto(base+route,{waitUntil:'networkidle'});
+   const observed={route,width,status:response?.status(),url:page.url(),title:await page.title(),bodyExcerpt:(await page.locator('body').innerText()).slice(0,600)};
+   results.push({case:'navigation observation',...observed});
+   assert.equal(response?.status(),200,JSON.stringify(observed));
+   assert.equal(await page.locator('main').count(),1,JSON.stringify(observed));
    assert.equal(await page.locator('h1').count(),1);
    assert.equal(await page.locator('img:not([alt])').count(),0);
    const dims=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));
