@@ -28,28 +28,30 @@ jobs:
           const targets=[{"id":"medina-home","site":"Medina","template":"landing","url":"https://www.tasteofmedina.com/"},{"id":"medina-category","site":"Medina","template":"category","url":"https://www.tasteofmedina.com/categories/street-food"},{"id":"medina-recipe","site":"Medina","template":"recipe","url":"https://www.tasteofmedina.com/recipes/1"},{"id":"viral-home","site":"ViralEats","template":"landing","url":"https://www.viraleats.app/"},{"id":"viral-recipe","site":"ViralEats","template":"recipe","url":"https://www.viraleats.app/recipe/midnight-chili-ramen"},{"id":"viral-about","site":"ViralEats","template":"editorial","url":"https://www.viraleats.app/about"},{"id":"hong-home","site":"Hong Kitchen","template":"landing","url":"https://hongkitchen.org/"},{"id":"hong-regions","site":"Hong Kitchen","template":"region index","url":"https://hongkitchen.org/regions"},{"id":"hong-recipe","site":"Hong Kitchen","template":"recipe","url":"https://hongkitchen.org/recipes/mapo-tofu"}];
           const extras=[{"id":"go-home","url":"https://gochujang.net/"},{"id":"go-recipe","url":"https://gochujang.net/recipes/yangnyeom-fried-chicken/"},{"id":"go-catalog","url":"https://gochujang.net/recipes/"},{"id":"kbbq-home","url":"https://kbbqguide.com/"},{"id":"kbbq-recipe","url":"https://kbbqguide.com/recipes/classic-korean-pear-beef-bulgogi/"},{"id":"kbbq-catalog","url":"https://kbbqguide.com/recipes/"},{"id":"silk-home","url":"https://silkandrice.com/"},{"id":"silk-recipe","url":"https://silkandrice.com/recipes/miso-black-cod"}];
           const {chromium}=await import(process.env.LAB_MODULE_DIR+'/playwright/index.mjs');
-          const chrome=chromium.executablePath();
+          const chrome=process.env.LAB_CHROME_PATH||chromium.executablePath();
           await fs.mkdir('lab-receipts',{recursive:true});
           const summary=[],blocked=new Set();
-          async function audit(target,sample,performance){
+          async function audit(target,sample,performance,attempt=0){
            if(blocked.has(new URL(target.url).hostname))return;
-           const path='lab-receipts/'+target.id+'-'+sample+'.json';
+           const path='lab-receipts/'+target.id+'-'+sample+'-attempt'+attempt+'.json';
            const args=[target.url,'--quiet','--chrome-flags=--headless --no-sandbox --disable-dev-shm-usage','--output=json','--output-path='+path,'--only-categories='+(performance?'performance,accessibility':'accessibility'),'--throttling-method=simulate','--form-factor=mobile','--screenEmulation.mobile=true','--screenEmulation.width=390','--screenEmulation.height=844','--screenEmulation.deviceScaleFactor=1'];
            const run=spawnSync(process.env.LAB_MODULE_DIR+'/.bin/lighthouse',args,{encoding:'utf8',timeout:120000,env:{...process.env,CHROME_PATH:chrome}});
            let r;try{r=JSON.parse(await fs.readFile(path,'utf8'))}catch{}
-           const row={target,sample,exitCode:run.status,error:r?.runtimeError||run.error?.message,version:r?.lighthouseVersion,userAgent:r?.userAgent,fetchTime:r?.fetchTime,settings:r?.configSettings,environment:r?.environment,finalUrl:r?.finalDisplayedUrl||r?.finalUrl,
+           const row={target,sample,attempt,exitCode:run.status,error:r?.runtimeError||run.error?.message,version:r?.lighthouseVersion,userAgent:r?.userAgent,fetchTime:r?.fetchTime,settings:r?.configSettings,environment:r?.environment,finalUrl:r?.finalDisplayedUrl||r?.finalUrl,
            metrics:r?Object.fromEntries(['first-contentful-paint','largest-contentful-paint','total-blocking-time','cumulative-layout-shift','speed-index'].map(k=>[k,r.audits[k]?.numericValue??null])):null,
            scores:r?Object.fromEntries(Object.entries(r.categories).map(([k,v])=>[k,v.score])):null,
            failedAudits:r?Object.entries(r.audits).filter(([,a])=>a.score!==null&&a.score<1&&a.scoreDisplayMode!=='notApplicable').map(([id,a])=>({id,title:a.title,score:a.score,displayValue:a.displayValue,details:a.details})):[],
            opportunities:r?Object.entries(r.audits).filter(([,a])=>a.details?.type==='opportunity'||a.metricSavings).map(([id,a])=>({id,title:a.title,displayValue:a.displayValue,metricSavings:a.metricSavings,details:a.details})):[]};
-           summary.push(row);await fs.writeFile('lab-receipts/summary.json',JSON.stringify({observedAt:new Date().toISOString(),protocol:'Serial cold-client Lighthouse 13.6.0 / pinned Playwright Chromium; 390×844 / DPR1; simulated mobile default throttling; one shared hosted runner. CDN/cache warmth can vary. Field metrics unavailable. Public reads only.',rows:summary},null,2));
-           if(row.error){blocked.add(new URL(target.url).hostname);console.log('UNVERIFIED '+target.id+' '+JSON.stringify(row.error));}else console.log('MEASURED '+target.id+' sample '+sample+' LCP '+row.metrics['largest-contentful-paint']);
+           summary.push(row);await fs.writeFile('lab-receipts/summary.json',JSON.stringify({observedAt:new Date().toISOString(),protocol:'Serial cold-client Lighthouse 13.6.0 / hosted stable Chrome; exact user agent recorded; at most one NO_NAVSTART engine retry retained; 390×844 / DPR1; simulated mobile default throttling; one shared hosted runner. CDN/cache warmth can vary. Field metrics unavailable. Public reads only.',rows:summary},null,2));
+           if(row.error){console.log('UNVERIFIED '+target.id+' '+JSON.stringify(row.error));if(row.error.code==='NO_NAVSTART'&&attempt===0){await audit(target,sample,performance,1);return;}blocked.add(new URL(target.url).hostname);}else console.log('MEASURED '+target.id+' sample '+sample+' LCP '+row.metrics['largest-contentful-paint']);
           }
           for(let i=0;i<3;i++)for(const target of targets)await audit(target,i,true);
           for(const target of extras)await audit(target,0,false);
-          if(summary.filter(x=>x.target.site&&!x.error).length!==27)process.exitCode=1;
+          if(summary.filter(x=>x.target.site&&!x.error).length!==27||summary.filter(x=>!x.target.site&&!x.error).length!==8)process.exitCode=1;
           
           JS
+          export LAB_CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable)"
+          "$LAB_CHROME_PATH" --version
           node "$RUNNER_TEMP/w12-lab.mjs"
       - uses: actions/upload-artifact@v5
         if: always()
