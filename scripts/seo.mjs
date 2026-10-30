@@ -43,6 +43,18 @@ export async function enhanceSite({root, recipes, images, editorial, domain, bra
       $('.collection-header').addClass('is-lane');
       $('.collection-header h1').html(`${cap(lane)} <em>recipes.</em>`);
       $('.collection-header>p').last().text(description);
+      const startingPoints = {
+        traditional: ['Compare a composed rice bowl with a kimchi stew.', ['dolsot-bibimbap', 'kimchi-jjigae']],
+        modern: ['Choose a noodle dish or a glazed short-rib centerpiece.', ['buldak-fire-noodles', 'gochujang-glazed-galbi-short-ribs']],
+        fusion: ['Explore gochujang in a pasta sauce or a chocolate dessert.', ['gochujang-bolognese', 'gochujang-dark-chocolate-tart']],
+      };
+      const [startingNote, startingSlugs] = startingPoints[lane];
+      const startingLinks = startingSlugs.map(slug => {
+        const recipe = recipes.find(r => r.slug === slug && r.lane === lane);
+        if (!recipe) throw new Error(`Missing contextual starting point: ${lane}/${slug}`);
+        return `<a class="text-link" href="/recipes/${slug}/">${escapeXML(recipe.title)}</a>`;
+      });
+      $('.collection-header').after(`<aside class="wrap collection-all" aria-label="Choose a starting recipe"><p>${startingNote} Start with ${startingLinks.join(' or ')}.</p></aside>`);
       $('[data-filter]').each((_, el) => { if ($(el).attr('data-filter') !== 'all') $(el).remove(); });
       $('[data-filter="all"]').html(`This collection <span>${count}</span>`);
       $('[data-result-count]').text(`${count} recipes to explore`);
