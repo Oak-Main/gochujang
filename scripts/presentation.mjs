@@ -2,8 +2,8 @@
 export function renderHome({photo, atmosphere, card, lanes, laneCount, cap, arrow}) {
   return `<section class="masthead" aria-labelledby="welcome-title">
     <div class="masthead-image">${atmosphere('seoul-table-atmosphere',true)}</div>
-    <div class="masthead-content wrap"><p class="eyebrow">고추장 &nbsp; / &nbsp; The Seoul Table</p><h1 id="welcome-title">A little heat.<br>A <em>deeper</em> story.</h1><p>Korean roots. An open kitchen.<br>Recipes for a generous table.</p><a class="button light" href="/recipes/">Find your next dish ${arrow}</a></div>
-    <div class="masthead-caption wrap"><span>A collection for curious cooks</span><a href="#the-collection">Discover the table <span aria-hidden="true">↓</span></a></div>
+    <div class="masthead-content wrap"><p class="eyebrow">고추장 &nbsp; / &nbsp; The Seoul Table</p><h1 id="welcome-title">A little heat.<br>A <em>deeper</em> story.</h1><p>Korean roots. An open kitchen.<br>Recipes for a generous table.</p><a class="button light" href="/recipes/">Browse all 14 recipes ${arrow}</a></div>
+    <div class="masthead-caption wrap"><span>A collection for curious cooks</span><a href="#the-collection">Choose traditional, modern or fusion <span aria-hidden="true">↓</span></a></div>
   </section>
   <section class="table-intro wrap" id="the-collection"><p class="eyebrow">The pleasure of cooking. The art of sharing.</p><p class="intro-statement">Familiar flavors.<br><em>Unexpected possibilities.</em></p><p>Korean classics, modern favorites, and new ways with gochujang. Fourteen recipes. Three paths. A place for everyone.</p></section>
   <section class="chapter-strip wrap" aria-label="Explore recipe collections">${lanes.map(l=>`<a href="/recipes/?lane=${l.id}"><span class="chapter-num">${l.num}</span><div><h2>${cap(l.id)} <sup>${laneCount(l.id)}</sup></h2><p>${l.text}</p></div>${arrow}</a>`).join('')}</section>
