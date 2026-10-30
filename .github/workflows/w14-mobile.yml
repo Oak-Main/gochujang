@@ -1,0 +1,36 @@
+name: W14 bounded mobile acceptance
+on:
+  pull_request:
+    branches: [main]
+    paths: ['scripts/presentation.mjs', 'tests/w14-mobile.mjs', '.github/workflows/w14-mobile.yml']
+permissions:
+  contents: read
+jobs:
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - run: corepack enable && corepack prepare pnpm@11.25.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build && pnpm test
+      - name: Install pinned browser test runtime
+        run: |
+          npm install --prefix "$RUNNER_TEMP/w14-qa" --no-save --package-lock=false playwright@1.64.1
+          "$RUNNER_TEMP/w14-qa/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Exercise local built candidate; no ingestion, publication or remote writes
+        env:
+          W14_PLAYWRIGHT_MODULE: ${{ runner.temp }}/w14-qa/node_modules/playwright/index.mjs
+        run: |
+          node scripts/serve.mjs > "$RUNNER_TEMP/w14-server.log" 2>&1 &
+          for i in $(seq 1 30); do curl --fail --silent http://127.0.0.1:4173/ > /dev/null && break; sleep 1; done
+          node tests/w14-mobile.mjs
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: w14-mobile-receipts
+          path: w14-receipts/
+          retention-days: 7
