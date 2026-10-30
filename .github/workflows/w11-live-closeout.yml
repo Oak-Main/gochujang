@@ -1,0 +1,104 @@
+name: W11 read-only live closeout observations
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/w11-live-closeout.yml']
+permissions:
+  contents: read
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Install pinned observation runtime
+        run: |
+          npm install --prefix "$RUNNER_TEMP/live-qa" --no-save --package-lock=false playwright@1.64.1 axe-core@4.14.0
+          "$RUNNER_TEMP/live-qa/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Observe established production targets; no writes or deployment
+        env:
+          QA_DIR: ${{ runner.temp }}/live-qa/node_modules
+        run: |
+          cat > "$RUNNER_TEMP/live-check.mjs" <<'JS'
+          import fs from 'node:fs/promises';
+          import assert from 'node:assert/strict';
+          const {chromium}=await import(process.env.QA_DIR+'/playwright/index.mjs');
+          const targets=[
+           {site:'Medina',base:'https://www.tasteofmedina.com',routes:['/','/recipes/1','/recipes']},
+           {site:'KBBQGuide',base:'https://kbbqguide.com',routes:['/','/recipes/classic-korean-pear-beef-bulgogi/','/recipes/']},
+           {site:'Gochujang',base:'https://gochujang.net',routes:['/','/recipes/dolsot-bibimbap/','/recipes/']},
+           {site:'Silk',base:'https://silkandrice.com',routes:['/','/recipes/miso-black-cod']},
+           {site:'ViralEats',base:'https://www.viraleats.app',routes:['/','/recipe/midnight-chili-ramen','/?q=ramen']}
+          ];
+          const rows=[];await fs.mkdir('live-receipts',{recursive:true});
+          const browser=await chromium.launch();
+          try{
+           for(const target of targets)for(const scheme of target.site==='ViralEats'?['light','dark']:['light'])for(const width of [320,390,768,1363]){
+            const context=await browser.newContext({viewport:{width,height:936},hasTouch:width<768,isMobile:width<768,deviceScaleFactor:1,colorScheme:scheme});
+            const page=await context.newPage();page.setDefaultTimeout(20000);
+            for(const route of target.routes){
+             const response=await page.goto(target.base+route,{waitUntil:'networkidle'});
+             assert.equal(response.status(),200,target.site+route);
+             const layout=await page.evaluate(()=>({actualWidth:innerWidth,scrollWidth:document.documentElement.scrollWidth,h1:document.querySelector('h1')?.textContent,main:document.querySelectorAll('main').length,missingAlt:document.querySelectorAll('img:not([alt])').length}));
+             assert.equal(layout.actualWidth,width,'Requested mobile width must not expand');
+             assert.ok(layout.scrollWidth<=width+1,target.site+route+' overflow');
+             assert.equal(layout.main,1);assert.ok(layout.h1);
+             await page.addScriptTag({path:process.env.QA_DIR+'/axe-core/axe.min.js'});
+             const a=await page.evaluate(async()=>{const x=await axe.run(document,{runOnly:['color-contrast','label','button-name','link-name','heading-order','target-size']});return {version:x.testEngine.version,violations:x.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.slice(0,10).map(n=>({target:n.target,summary:n.failureSummary}))})),incompleteRules:x.incomplete.map(v=>v.id)}});
+             if(target.site==='ViralEats'&&!route.includes('/recipe/')){const check=await page.evaluate(async()=>{const x=await axe.run(document.querySelector('#cuisine-filters'),{runOnly:['color-contrast']});return x.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)}))});assert.equal(check.length,0,JSON.stringify({site:target.site,width,scheme,route,contrast:check}));}
+   rows.push({site:target.site,route,width,scheme,http:response.status(),layoutStatus:'PASS',...layout,automatedAccessibility:a,observedAt:new Date().toISOString()});
+            }
+            await page.goto(target.base+'/',{waitUntil:'networkidle'});
+            if(target.site==='Gochujang'||target.site==='KBBQGuide'){
+             const trigger=page.getByRole('button',{name:'Search recipes',exact:true});await trigger.press('Enter');
+             const dialog=page.getByRole('dialog');await dialog.waitFor({state:'visible'});
+             assert.ok(await dialog.evaluate(e=>e.contains(document.activeElement)));
+             await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
+             assert.ok(await trigger.evaluate(e=>e===document.activeElement));
+             rows.push({site:target.site,width,scheme,interaction:'Native search dialog keyboard open/Escape/focus return',status:'PASS'});
+            }
+            if(target.site==='Medina'){
+             const street=page.getByRole('button',{name:/Street Food/});await street.press('Space');assert.equal(await street.getAttribute('aria-pressed'),'true');
+             const all=page.getByRole('button',{name:/^All/});await all.press('Enter');assert.equal(await all.getAttribute('aria-pressed'),'true');
+             assert.match(await page.getByRole('status').innerText(),/120/);
+             await page.goto(target.base+'/categories/street-food',{waitUntil:'networkidle'});
+             const cards=page.locator('main div.grid img');assert.equal(await cards.count(),30);
+             assert.notEqual(await cards.nth(0).getAttribute('loading'),'lazy');assert.notEqual(await cards.nth(1).getAttribute('loading'),'lazy');assert.equal(await cards.nth(2).getAttribute('loading'),'lazy');
+             rows.push({site:target.site,width,scheme,interaction:'StreetFood/All keyboard reset and published first-two category loading contract',status:'PASS'});
+            }
+            if(target.site==='Silk'){
+             const group=page.getByRole('group',{name:'Filter recipes by region'});
+             const japan=group.getByRole('button',{name:'Japan',exact:true});await japan.press('Enter');assert.equal(await japan.getAttribute('aria-pressed'),'true');
+             assert.equal(await page.locator('main button:has(img)').count(),31);
+             await group.getByRole('button',{name:'All',exact:true}).press('Enter');assert.equal(await page.locator('main button:has(img)').count(),150);
+             const trigger=page.locator('main button:has(img)').first();await trigger.press('Enter');
+             const dialog=page.getByRole('dialog');await dialog.waitFor({state:'visible'});assert.equal(await dialog.getAttribute('aria-modal'),'true');
+             for(let i=0;i<12;i++){await page.keyboard.press('Tab');assert.ok(await dialog.evaluate(e=>e.contains(document.activeElement)));}
+             await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});assert.ok(await trigger.evaluate(e=>e===document.activeElement));
+             await page.getByRole('button',{name:/^Show all .* verified ingredients/}).press('Enter');assert.equal(await page.getByRole('button',{name:'Show fewer',exact:true}).count(),1);
+             assert.equal(await page.evaluate(()=>innerWidth),width);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+             rows.push({site:target.site,width,scheme,interaction:'Japan31/All150; dialog12Tab/Escape/focus return; expanded glossary fits',status:'PASS'});
+            }
+            if(target.site==='ViralEats'){
+             await page.locator('#recipe-search').fill('ramen');
+             const link=page.locator('a[href="/recipe/midnight-chili-ramen"]').first();await link.waitFor({state:'visible'});await link.press('Enter');await page.waitForURL('**/recipe/midnight-chili-ramen');
+             assert.match(await page.locator('h1').innerText(),/Midnight Chili Ramen/);
+             rows.push({site:target.site,width,scheme,interaction:'Keyboard search to existing recipe',status:'PASS'});
+            }
+            await page.screenshot({path:'live-receipts/'+target.site+'-'+scheme+'-'+width+'.png'});
+            await context.close();
+           }
+          }catch(e){rows.push({status:'FAIL',error:String(e),observedAt:new Date().toISOString()});throw e}
+          finally{const report={observedAt:new Date().toISOString(),purpose:'Bounded read-only public-production observation and behavior receipts. Per-rule accessibility findings remain FAIL/INCOMPLETE; workflow success is not compliance or whole-task acceptance. No orders/forms/DB/publication/hook calls.',rows};console.log('OAM_PUBLIC_RECEIPT '+JSON.stringify(report));await fs.writeFile('live-receipts/results.json',JSON.stringify(report,null,2));await browser.close();}
+          
+          JS
+          node "$RUNNER_TEMP/live-check.mjs"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: w11-live-closeout
+          path: live-receipts/
+          retention-days: 7
