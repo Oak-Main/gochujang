@@ -1,0 +1,15 @@
+{
+  "site_name": "The Seoul Table",
+  "site_url": "https://gochujang.net",
+  "legal_entity": "Oak and Main Developers LLC",
+  "postal_address": "1223 Cleveland Ave, Suite 200, San Diego, CA 92103",
+  "contact_email": "admin@oakandmain.dev",
+  "governing_law": "California",
+  "effective_date": "November 10, 2026",
+  "analytics": [],
+  "amazon": false,
+  "pages": [
+    "terms"
+  ],
+  "disclosure_url": "/affiliate-disclosure"
+}
