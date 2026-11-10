@@ -1,11 +1,11 @@
 {
   "site_name": "The Seoul Table",
   "site_url": "https://gochujang.net",
-  "legal_entity": "{{LEGAL_ENTITY}}",
-  "postal_address": "{{POSTAL_ADDRESS}}",
-  "contact_email": "{{CONTACT_EMAIL}}",
+  "legal_entity": "DUMMY Entity LLC",
+  "postal_address": "PO Box 0000, Nowhere, CA 00000",
+  "contact_email": "legal@oakandmain.com",
   "governing_law": "California",
-  "effective_date": "{{EFFECTIVE_DATE}}",
+  "effective_date": "January 1, 2000",
   "analytics": [],
   "amazon": false,
   "pages": [
