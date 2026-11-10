@@ -9,7 +9,7 @@
   "packageManager": "pnpm@11.25.0",
   "scripts": {
     "import:recipes": "node scripts/import-recipes.mjs",
-    "build": "node scripts/build.mjs",
+    "build": "node scripts/legal-build.mjs --check-only && node scripts/build.mjs && node scripts/legal-build.mjs --out dist",
     "dev": "node scripts/serve.mjs",
     "test": "node scripts/verify.mjs && node scripts/verify-seo.mjs && node scripts/verify-editorial.mjs && node scripts/verify-responsive-sizes.mjs",
     "optimize:media": "node scripts/optimize-media.mjs",

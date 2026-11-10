@@ -1,0 +1,15 @@
+{
+  "site_name": "The Seoul Table",
+  "site_url": "https://gochujang.net",
+  "legal_entity": "{{LEGAL_ENTITY}}",
+  "postal_address": "{{POSTAL_ADDRESS}}",
+  "contact_email": "{{CONTACT_EMAIL}}",
+  "governing_law": "California",
+  "effective_date": "{{EFFECTIVE_DATE}}",
+  "analytics": [],
+  "amazon": false,
+  "pages": [
+    "terms"
+  ],
+  "disclosure_url": "/affiliate-disclosure"
+}
