@@ -14,3 +14,4 @@ html{scroll-padding-top:112px}h1,h2,h3{text-wrap:balance}::selection{background:
 
 @media(max-width:760px){.editorial-grid>.recipe-tile:last-child:nth-child(odd) .tile-image img{aspect-ratio:.88}}
 .recipe-tile h3 a{display:block}
+.legal-page h2{font-size:24px;margin:34px 0 10px}.legal-page ul{font-size:14px;line-height:1.85;color:var(--muted);padding-left:20px}.legal-page>p:first-child{margin-top:0}
