@@ -79,9 +79,29 @@ function recipePage(r) {
 for (const r of recipes) await page(url(r.slug), recipePage(r));
 const about = `<section class="about-hero wrap"><p class="eyebrow">Our approach</p><h1>Rooted in Korea.<br><em>Room to explore.</em></h1><p>Gochujang is a collection for curious home cooks: a place for the dishes that anchor Korean cooking, and the ideas that carry its ingredients somewhere new.</p></section><section class="about-image wrap">${photo('ssam-with-ssamjang','',true,'100vw')}<span>Good food is meant to be shared.</span></section><section class="section about-body wrap"><div><p class="eyebrow">Know what you’re cooking</p><h2>Three paths.<br><em>One table.</em></h2></div><div>${lanes.map(l=>`<section class="about-lane"><span class="eyebrow">${l.num} / ${laneCount(l.id)} recipes</span><h3>${cap(l.id)}</h3><p>${l.text}</p><a class="text-link" href="/recipes/?lane=${l.id}">Explore ${l.id} ${arrow}</a></section>`).join('')}</div></section><section class="about-note wrap"><h2>Who operates this collection</h2><p>Gochujang is operated by Oak &amp; Main Developers LLC. The traditional, modern and fusion labels describe the collection; they are not credentials for an individual author or a kitchen-testing certification.</p><h2>A note on the pictures.</h2><p>The recipe images and editorial still lifes in this edition were created with AI. The recipe images illustrate each dish. They are visual interpretations of the ingredients and preparation, rather than photographs of kitchen tests. Follow the written recipe for quantities, technique, and doneness.</p><p>Want to spend more time around the grill? Visit our companion site, <a href="https://kbbqguide.com/">KBBQGuide ↗</a>.</p><a class="button dark" href="/recipes/">Find something to cook ${arrow}</a></section>`;
 await page('/about/',layout({title:'Our Approach — Gochujang',description:'Korean roots and an open kitchen. Discover how Gochujang brings together traditional, modern, and fusion recipes.',route:'/about/',body:about,image:'ssam-with-ssamjang'}));
+// Legal pages: rendered with the site layout from legal/templates + legal/legal.config.json,
+// so they get the header, footer, SEO pass and sitemap. scripts/legal-build.mjs then
+// finds them built and only re-checks the tokens.
+const legal = JSON.parse(await read('legal/legal.config.json'));
+const legalFill = s => s.replace(/\{\{([A-Z_]+)\}\}/g, (_, k) => {
+  const key = k.toLowerCase();
+  if (key === 'analytics_list') return (legal.analytics || []).map(a => `<li>${esc(a)}</li>`).join('') || '<li>None</li>';
+  if (key === 'amazon_sentence') return legal.amazon ? '<p>As an Amazon Associate I earn from qualifying purchases.</p>' : '';
+  if (legal[key] === undefined) throw new Error(`legal template token {{${k}}} has no config value`);
+  return esc(legal[key]);
+});
+const legalPages = { privacy: { title: 'Privacy Policy', description: 'How The Seoul Table (gochujang.net) handles data: analytics, recipes saved in your browser, who runs the site, and your privacy rights.' }, terms: { title: 'Terms of Use', description: 'The terms for using The Seoul Table (gochujang.net), operated by Oak and Main Developers LLC, including governing law and contact details.' } };
+const legalRoutes = [];
+for (const slug of legal.pages.filter(p => legalPages[p])) {
+  const html = legalFill(await read(`legal/templates/${slug}.html`));
+  const heading = html.match(/<h1>(.*?)<\/h1>/)?.[1] || legalPages[slug].title;
+  const body = `<section class="about-hero wrap legal-hero"><p class="eyebrow">The fine print</p><h1>${heading}</h1></section><section class="about-note wrap legal-page">${html.replace(/<h1>.*?<\/h1>\s*/, '')}</section>`;
+  await page(`/${slug}/`, layout({ title: `${legalPages[slug].title} — Gochujang`, description: legalPages[slug].description, route: `/${slug}/`, body }));
+  legalRoutes.push(`/${slug}/`);
+}
 await page('/404/',layout({title:'A little off the menu — Gochujang',description:'Find your next dish in the Gochujang recipe collection.',route:'/404/',body:'<section class="not-found wrap"><p class="eyebrow">404 · Page not found</p><h1>A little off<br><em>the menu.</em></h1><p>Let’s get you back to something good.</p><a href="/recipes/" class="button dark">Explore the recipes ↗</a></section>'}));
 await cp(path.join(out,'404/index.html'),path.join(out,'404.html'));
-const routes=['/','/recipes/','/about/',...recipes.map(r=>url(r.slug))];
+const routes=['/','/recipes/','/about/',...legalRoutes,...recipes.map(r=>url(r.slug))];
 await writeFile(path.join(out,'sitemap.xml'),`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${routes.map(r=>`<url><loc>https://gochujang.net${r}</loc></url>`).join('')}</urlset>`);
 await writeFile(path.join(out,'robots.txt'),'User-agent: *\nAllow: /\nSitemap: https://gochujang.net/sitemap.xml\n');
 await writeFile(path.join(out,'search.json'),json(recipes.map(r=>({slug:r.slug,title:r.title,lane:r.lane}))));

@@ -33,6 +33,6 @@ for(const file of htmlFiles){const $=load(await readFile(file,'utf8'));check($('
  for(const el of $('a[href],img[src],link[href],script[src]').toArray()){const ref=$(el).attr('href')||$(el).attr('src');if(!ref||/^(https?:|mailto:|tel:|data:)/.test(ref))continue;if(ref.startsWith('#')){check($(`[id="${ref.slice(1)}"]`).length>0,`${file}: missing anchor ${ref}`);continue;}const target=path.join(root,'dist',ref.split(/[?#]/)[0]);try{const item=await stat(target);if(item.isDirectory())await stat(path.join(target,'index.html'));links++;}catch{failures.push(`${file}: broken local reference ${ref}`);}}
  for(const img of $('img').toArray()){check(Boolean($(img).attr('alt')),`${file}: image missing alt`);check(Boolean($(img).attr('width')&&$(img).attr('height')),`${file}: image dimensions missing`);}
 }
-check((await read('dist/sitemap.xml')).match(/<url>/g)?.length===20,'Sitemap route count mismatch');
+check((await read('dist/sitemap.xml')).match(/<url>/g)?.length===22,'Sitemap route count mismatch');
 check(!(await readdir(path.join(root,'dist/images/recipes'))).some(n=>n.includes('-master.')),'Archival master included in published assets');
 if(failures.length){console.error(failures.join('\n'));process.exitCode=1;}else console.log(`PASS: 14 source hashes and recipe schemas unchanged; ${ingredients} ingredients; ${blocks} content blocks; ${htmlFiles.length} HTML files; ${links} local references; 14 matching responsive images; canonical URLs and sitemap.`);

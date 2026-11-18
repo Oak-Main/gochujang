@@ -5,11 +5,15 @@
   "postal_address": "1223 Cleveland Ave, Suite 200, San Diego, CA 92103",
   "contact_email": "admin@oakandmain.dev",
   "governing_law": "California",
-  "effective_date": "November 10, 2026",
-  "analytics": [],
+  "effective_date": "November 18, 2026",
+  "analytics": [
+    "Google Analytics 4, loaded through Cloudflare Zaraz",
+    "Cloudflare Web Analytics (no cookies)"
+  ],
   "amazon": false,
   "pages": [
-    "terms"
+    "terms",
+    "privacy"
   ],
   "disclosure_url": "/affiliate-disclosure"
 }
